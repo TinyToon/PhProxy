@@ -299,8 +299,12 @@ var $client_answer = '';
         // состояние равное 5 - ответ получен,нужно ответить
         if ($this->server_state == 5) {
 
-            // удаляем заголовки прокси сервера
-            list($temp, $ans) = @explode("\r\n\r\n", $this->server_answer, 2);
+            // удаляем заголовки прокси сервера (2.0.5+)
+            if (strpos($this->server_answer, "\r\n\r\n") !== false) {
+                list($temp, $ans) = @explode("\r\n\r\n", $this->server_answer, 2);
+            } else {
+                $ans = $this->server_answer;
+            }
 
             // отвечаем
             @socket_write($this->server_cnx, $ans, strlen($ans));

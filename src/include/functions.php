@@ -13,42 +13,9 @@
  * @link      http://shcneider.in/forum
  **/
 
-
-
 // ------------------------------------------------------------- >> PHPROXY
 
 
-// обработчик событий в GUI окне
-function phproxy_eventsHandler($win, $id, $con = 0, $param1 = 0, $param2 = 0)
-{
-    global $phproxy;
-    
-        switch ($id) {
-
-            // нажата клавиша закрытия окошка
-            case IDCLOSE:
-                phproxy_stop(); break;
-
-            // Кнопка запуска сервера
-            case ID_SERVER_BSTART:
-                phproxy_server_start(); break;
-
-            // Кнопка остановки сервера
-            case ID_SERVER_BSTOP:
-                phproxy_server_stop(); break;
-
-            // Сработал таймер сервеного сокета
-            case ID_SOCKET_TIMER:
-                $phproxy->server_main(); break;
-
-            // сработал таймер клиентской части
-            case ID_CLIENT_TIMER:
-                $phproxy->client_main(); break;
-
-        }
-
-    return true;
-}
 
 // функция закрытия программы
 function phproxy_stop()

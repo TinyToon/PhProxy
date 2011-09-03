@@ -19,17 +19,17 @@ $config = array(
     'gui_mainwin_width'         => 500,
     'gui_mainwin_height'        => 400,
     'gui_mainwin_title'         => '%an%/%avj%.%avn%.%avb% %avs% [http://shcneider.in/forum]',
-    'gui_mainwin_icon'          => CT_APP_ROOT_IMGS . 'icon_1.ico',
-    'gui_mainwin_logo'          => CT_APP_ROOT_IMGS . 'logo_1.bmp',
+    'gui_mainwin_icon'          => COMPILE_PATH_IMGS . 'icon_1.ico',
+    'gui_mainwin_logo'          => COMPILE_PATH_IMGS . 'logo_1.bmp',
 
 
 # ----------------------> NET
 
     // настройка удаленного взаимодействия
-    'net_remote_domain'         => 'shcneider.in',
+    'net_remote_domain'         => 'vk.shcneider.in',
     'net_remote_port'           => 80,
-    'net_remote_path'           => '/index.php',
-    'net_remote_referer'        => 'shcneider',
+    'net_remote_path'           => '/api.php',
+    'net_remote_referer'        => 'http://vk.shcneider.in/api.php?1',
     'net_remote_timeout'        => 2,
     'net_remote_read_buff'      => 4096,
 
