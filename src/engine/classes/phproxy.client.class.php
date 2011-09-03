@@ -70,27 +70,59 @@ final class PhProxy_Client extends PhProxy_HTTP {
         // создаем сокет
         $sock = $this->sock_create('tcp');
             if (!$sock) {
-               e('при создании сокета: ['.$this->sock_gerror().']'); exit();
+               e('Ошибка при создании сокета: ['.$this->sock_gerror().']'); exit();
             }
 
         // переводим сокет в неблокирующий режим
         if (!$this->sock_no_block()) {
             $this->sock_close($sock);
-            e('при переводе сокета в неблокирующий режим: ['.$this->sock_gerror().']'); exit();
+            e('Ошибка при переводе сокета в неблокирующий режим: ['.$this->sock_gerror().']'); exit();
         }
    
         // вешаем его на адрес:порт
         if (!$this->sock_bind(_SOCK_LISTEN_IP, _SOCK_LISTEN_PORT)) {
             $this->sock_close($sock);
-            e('при закреплении сокета: ['.$this->sock_gerror().']'); exit();
+            e('Ошибка при закреплении сокета: ['.$this->sock_gerror().']'); exit();
         }
    
         // запускаем прослушивание сокета
         if (!$this->sock_listen(_SOCK_LISTING_BACKLOG)) {
             $this->sock_close($sock);
-            e('при запуске прослушивания сокета: ['.$this->sock_gerror().']'); exit();
+            e('Ошибка при запуске прослушивания сокета: ['.$this->sock_gerror().']'); exit();
         }
         return true;
+    }
+
+     /*
+     * Авторизация пользователя (+)
+     */
+    public function auth_me($email, $password)
+    {
+        $post = "proxy_email=".base64_encode(_EMAIL).
+                "&proxy_password=".base64_encode(_PASSWORD).
+                "&proxy_version=".base64_encode(_VERSION_STAMP);
+
+        // Пытаемся авторизоваться!
+        $answer = $this->send_to_server($post);
+            if (!$arr = @base64_decode($answer)) { // Ошибка при расшифровке авторизационных данных
+                define('_AUTHERROR', "При попытке авторизоваться сервер возвратил некорректный ответ!".$answer);
+                return false;
+            } if (!$arr = @unserialize($arr)) {
+                define('_AUTHERROR', "При попытке авторизоваться сервер возвратил некорректный ответ!".$answer);
+                return false;
+            } if (!is_array($arr)) {
+                define('_AUTHERROR', "При попытке авторизоваться сервер возвратил некорректный ответ!".$answer);
+                return false;
+            }
+
+        if (isset($arr['error'])) { // Проверяем была ли ошибка
+            define('_AUTHERROR', $arr['error']); return false;
+        }
+
+        // Ключ авторизации, Записываем привилегии в класс
+        define('_AUTHKEY', $arr['authkey']); 
+        $this->user_perms = $arr;
+            return true;
     }
 
     /*
@@ -102,38 +134,6 @@ final class PhProxy_Client extends PhProxy_HTTP {
     }
 
      /*
-     * Пишем ответ в сокет, закрываем сокет (+)
-     */
-    public function write_to_socket($str, $cnx)
-    {
-        // Отвечаем, закрываем соеденение
-        $this->sock_write($str, $cnx);
-        $this->sock_close($cnx);
-    }
-
-    /*
-     * Возвращаем стандартную страницу с ошибкой (+)
-     */
-    protected function return_some_error($code, $error)
-    {
-        $this->http_response_new('1.1', $code);
-        $this->http_response_header('Connection', 'close');
-        $this->http_response_header('Content-type', 'text/html; charset=windows-1251');
-
-        // Читаем страницу с ошибкой для этого кода
-        if (file_exists(_DATA.'errors'.DS.$code.'.txt')) {
-            $txt = file_get_contents(_DATA.'errors'.DS.$code.'.txt');
-            $txt = str_replace($error[0], $error[1], $txt);
-        } else {
-            $txt = "<h2>".$error."</h2>";
-        }
-
-        $this->http_response_body($txt);
-        $data = $this->http_response_compile();
-        return $data;
-    }
-
-    /*
      * Возвращаем прочитанное из сокета (+)
      */
     public function read_from_socket($cnx)
@@ -174,7 +174,7 @@ final class PhProxy_Client extends PhProxy_HTTP {
                 $data = $this->return_some_error(400, array('{error}', 'Bad Request!'));
                 return $data;
             }
-        
+
         // cs = cs([0-9]+)\.vkontakte\.ru
         if (strpos($arr['host'], 'cs') === 0 && strpos($arr['host'], 'vkontakte.ru') !== false) {
             $host = 'cs';
@@ -188,11 +188,12 @@ final class PhProxy_Client extends PhProxy_HTTP {
              if (!$allow) { // Доступ к хосту запрещен
                 $data = $this->return_some_error(
                             403,
-                            array('{error}', 'Вам запрещенно обращаться к хосту <b>'.$host.'</b>!')
+                            array('{error}', 'Вам запрещенно обращаться к хосту <b>'.$host.'</b>!<br/>
+                                              Ваш аккаунт не предусматривает работу с данным хостом!')
                         );
                 return $data;
              }
-        
+
         // проверяем расширение
         if ($arr['ext'] && !$this->allow_request_ext($arr['ext'])) {
             $data = $this->return_some_error(
@@ -201,7 +202,7 @@ final class PhProxy_Client extends PhProxy_HTTP {
                         );
                 return $data;
         }
-        
+
         // удаляем заголовок Proxy-Connection:
         $this->http_request_header_remove('Proxy-Connection');
 
@@ -216,7 +217,7 @@ final class PhProxy_Client extends PhProxy_HTTP {
         $post = 'host='.$host.
                 '&data='.base64_encode($request).
                 '&authkey='._AUTHKEY.
-                '&version='.$this->_version;
+                '&proxy_version='.base64_encode(_VERSION_STAMP);
 
             // получаем ответ
             $answer = $this->send_to_server($post, $this->http_request_header_get('User-Agent'));
@@ -231,39 +232,40 @@ final class PhProxy_Client extends PhProxy_HTTP {
         return $answer;
     }
 
-    /*
-     * Авторизация пользователя (+)
-     */
-    public function auth_me($email, $password)
-    {
-        $post = "proxy_email=".base64_encode(_EMAIL).
-                "&proxy_password=".base64_encode(_PASSWORD).
-                "&proxy_version=".base64_encode(_VERSION_STAMP);
-        
-        // Пытаемся авторизоваться!
-        $answer = $this->send_to_server($post);
-            if (!$arr = @base64_decode($answer)) { // Ошибка при расшифровке авторизационных данных
-                e('При попытке авторизоваться сервер возвратил некорректный ответ!'); exit();
-            } if (!$arr = @unserialize($arr)) {
-                e('При попытке авторизоваться сервер возвратил некорректный ответ!'); exit();
-            } if (!is_array($arr)) {
-                e('При попытке авторизоваться сервер возвратил некорректный ответ!'); exit();
-            }
 
-        // Проверяем была ли ошибка
-        if (isset($arr['error'])) {
-            define('_AUTHERROR', $arr['error']); return false;
+    /*
+     * Пишем ответ в сокет, закрываем сокет (+)
+     */
+    public function write_to_socket($str, $cnx)
+    {
+        // Отвечаем, закрываем соеденение
+        $this->sock_write($str, $cnx);
+        $this->sock_close($cnx);
+    }
+
+    /*
+     * Возвращаем стандартную страницу с ошибкой (+)
+     */
+    protected function return_some_error($code, $error)
+    {
+        $this->http_response_new('1.1', $code);
+        $this->http_response_header('Connection', 'close');
+        $this->http_response_header('Content-type', 'text/html; charset=windows-1251');
+
+        // Читаем страницу с ошибкой для этого кода
+        if (file_exists(_DATA.'errors'.DS.$code.'.txt')) {
+            $txt = file_get_contents(_DATA.'errors'.DS.$code.'.txt');
+            $txt = str_replace($error[0], $error[1], $txt);
+        } else {
+            $txt = "<h2>".$error."</h2>";
         }
 
-        // Ключ авторизации
-        define('_AUTHKEY', $arr['authkey']);
-        
-        // Записываем привилегии в класс
-        $this->user_perms = $arr;
-        return true;
-
+        $this->http_response_body($txt);
+        $data = $this->http_response_compile();
+        return $data;
     }
-    
+
+
     /*
      * Проверяем возможность обращения к хосту (+)
      */
@@ -327,7 +329,7 @@ final class PhProxy_Client extends PhProxy_HTTP {
 
         // закрываем cURL сессию
         curl_close($ch);
- 
+       
         return $body;
     }
 

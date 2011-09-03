@@ -20,7 +20,7 @@ ob_implicit_flush(1);
  * Определяем рабочую дирректорию для запускаемого скрипта, и назначаем константы
  * с путем до скриптов, лог файлов, кэша, данных
  */
-define('DS', DIRECTORY_SEPARATOR);
+define('DS',    DIRECTORY_SEPARATOR);
 define('_ROOT', str_replace('engine', '', getcwd()).DS);
 define("_LOGS", _ROOT.'logs'.DS);
 define("_DATA", _ROOT.'data'.DS);
@@ -30,9 +30,9 @@ define("_DATA", _ROOT.'data'.DS);
  * через php-win.exe, который не имеет STDOUT и, как следствие, единственную возможность
  * общаться с пользователем до инициализации Web-интерфейса.
  */
-ini_set('log_errors', true);
-ini_set('log_errors_max_len', 1024);
-ini_set('error_log', _LOGS.date('Y.m.d').'.txt');
+ini_set('log_errors',           true);
+ini_set('log_errors_max_len',   1024);
+ini_set('error_log',            _LOGS.date('Y.m.d').'.txt');
 
     /*
      * Своя функция ведения лога ошибок.
@@ -50,14 +50,27 @@ if (!file_exists(_ROOT.'engine'.DS.'config.php')) {
 }
 require(_ROOT.'engine'.DS.'config.php');
 
-// данные авторизации
+# ------------------------------------------------------------> Разбираем параметры запуска
+$act = isset($argv[1]) ? $argv[1] : 'start';
+    if ($act == 'stop') { // Остановка сервера
+        $fp = @fsockopen(_SOCK_LISTEN_IP, _SOCK_LISTEN_PORT, $errno, $errstr, 5);
+            if ($fp == false && $errno) { exit('Server hasn`t been srart!'."\r\n"); }
+        fputs($fp, '-off');
+        while (!feof($fp)) { echo fgets($fp); }
+        fclose($fp);  exit();
+    }
+    
+# ------------------------------------------------------------> Запуск скрипта
+
+/*
+ *  данные авторизации
+ */
 if (!file_exists(_ROOT.'account.txt')) {
     e('Файл с данными авторизации не найден!'); exit();
 }
 $data = @file_get_contents(_ROOT.'account.txt');
-list($email, $pass) = @explode("\r\n", $data, 2);
-$email = trim($email);
-$pass = trim($pass);
+    list($email, $pass) = @explode("\r\n", $data, 2);
+$email = trim($email); $pass = trim($pass);
 
 // Данные авторизации
 define('_EMAIL',                $email);
@@ -93,9 +106,12 @@ do {
     $new_cnx    = $proxy->get_new_connection();
     
     // Читаем данные из открытого соеденения (может вернуть false)
-    $data       = $proxy->read_from_socket($new_cnx);
+    $data       = $proxy->read_from_socket($new_cnx); 
         if (!$data) { // Была какая то ошибка при получении запроса (продолжаем слушать)
             continue;
+        } elseif (trim($data) == '-off') {
+            $proxy->write_to_socket('Server has been stoped!'."\r\n", $new_cnx);
+            break;
         }
         
     // Разбираем запрос, генерим ответ

@@ -1,2 +1,2 @@
 @echo off
-php\php-win.exe engine\phproxy.php
+php\php-win.exe engine\phproxy.php start
