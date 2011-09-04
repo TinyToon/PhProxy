@@ -1,0 +1,71 @@
+<html>
+    <head>
+        <title>Ошибка | {version}</title>
+        <style type='text/css'>
+        body {
+			color: #369;
+			font-family: 'Tahoma','Arial';
+			font-size: 12px;
+        } a {
+			color: #369;
+        } a:hover {
+			color: #000;
+        }
+        #phproxy_error {
+			display: block;
+			width: 800px;
+			margin: 0 auto;
+			margin-top: 50px;
+			border: 1px solid #eef;
+			border-radius: 20px;
+        }
+        #phproxy_error_header {
+			background-color: #369;
+			border-radius: 20px 20px 0px 0px;
+			color: #fff;
+			padding: 2px; margin: 0px;
+        }
+        #phproxy_error_header h1 {
+			font-size: 16px;
+			text-align: center;
+			padding: 2px; margin: 0px;
+        }
+        #phproxy_error_body {
+			background-color: #f9f9f9;
+			margin: 0px;
+			padding: 10px;
+        }
+        #phproxy_error_footer {
+			text-align: center;
+			background-color: #369;
+			color: #fff;
+			padding: 2px; margin: 0px;
+        }
+        #phproxy_error_footer a {
+			color: #fff;
+        }
+        #phproxy_error_footer a:hover {
+			color: #aaa;
+        }
+        
+        
+        </style>
+    </head>
+    
+    <body>
+		<div id='phproxy_error'>
+			<div id='phproxy_error_header'><h1>Во время работы PhProxy произошла ошибка</h1></div>
+			<div id='phproxy_error_body'><p>{error}</p></div>
+			<div id='phproxy_error_footer'>
+			<small>
+			<b>{version}</b><br/>via {system} 
+			<br/>
+			<a href='http://vk.shcneider.in/forum' target='_blanc'>Форум поддержки</a> |
+			<a href='http://m.vk.com/group25618473' target='_blanc'>Группа вконтакте</a> 
+			</small>
+			</div>
+        </div>
+        
+    </body>  
+    <center><br/>Created by <a href='http://m.vk.com/id11517247' target='_blanc'>Alex Shcneider</a> &copy; 2009-2011 </center>
+</html>
