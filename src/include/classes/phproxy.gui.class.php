@@ -240,7 +240,7 @@ class PhProxy_GUI {
                 return $this->controlls[$id] = $ret;
             }
 
-        $phproxy = PhProxy::getInstance();
+        $phproxy = PhProxy::factory();
         PhProxy::fatal(__CLASS__ . ' - ' . sprintf($phproxy->lang->get('gui', 'Error1'), $id));
         return false;
     }
@@ -413,7 +413,7 @@ class PhProxy_GUI {
     {
         // controll is not exists
         if (!isset($this->controlls[$id])) {
-            PhProxy::fatal(__CLASS__ . ' - ' . sprintf(PhProxy::getInstance('lang')->get('gui', 'Error2'), $id));
+            PhProxy::fatal(__CLASS__ . ' - ' . sprintf(PhProxy::factory('lang')->get('gui', 'Error2'), $id));
         }
         return wb_get_text($this->controlls[$id]);
     }

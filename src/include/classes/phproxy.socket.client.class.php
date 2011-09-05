@@ -149,7 +149,7 @@ final class PhProxy_Socket_Client {
     public function new_query_to_api($query, $handler, $binded = -1)
     { 
         // get instance
-        $cfg = PhProxy::getInstance('cfg');
+        $cfg = PhProxy::factory('cfg');
  
         return $this->new_query(
             $cfg->get('phproxy.api', 'host'), 
@@ -180,7 +180,7 @@ final class PhProxy_Socket_Client {
         // check limit
         if ($this->_cnx_max <= sizeof($this->_cnx)) {
             PhProxy::warn(
-                sprintf(PhProxy::getInstance('lang')->get('socket.client', 'Error1'), $ip.':'.$port)
+                sprintf(PhProxy::factory('lang')->get('socket.client', 'Error1'), $ip.':'.$port)
             ); 
             return false;
         }

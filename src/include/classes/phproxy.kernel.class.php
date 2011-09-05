@@ -33,7 +33,7 @@ function PhProxy_Controller($win, $id, $con = 0, $param1 = 0, $param2 = 0)
             break;
 
         // main window
-        case PHPROXY_MAINWIN_ID: PhProxy::getInstance('gui')->c_handler_invoke($id, $con, $param1, $param2);
+        case PHPROXY_MAINWIN_ID: PhProxy::factory('gui')->c_handler_invoke($id, $con, $param1, $param2);
             break;
         
     }
@@ -171,7 +171,7 @@ final class PhProxy_Kernel {
             }    
         
         // double-launch protect ( @since 2.0.5 )
-        define('PHPROXY_WIN_MAIN_TITLE', PhProxy::version());
+        define('PHPROXY_WIN_MAIN_TITLE', PhProxy::version('%an%'));
             if (wb_get_instance(PHPROXY_WIN_MAIN_TITLE, true)) {
                 PhProxy::warn($this->lang->get('bootstrap', 'error5')); die();
             } 
@@ -230,25 +230,25 @@ final class PhProxy_Kernel {
         
         // set handlers for some controls
             $gui->c_handler_set(IDCLOSE, function() { // user wanna close app
-               PhProxy::getInstance()->stop();
+               PhProxy::factory()->stop();
             });
             $gui->c_handler_set(ID_HYPER_FORUM, function() { // register
-                PhProxy::getInstance()->register();
+                PhProxy::factory()->register();
             });
             $gui->c_handler_set(ID_BUTTON_AUTH_NO, function() { // auth as Guest
                 #PhProxy::getInstance()->guest();
             });
             $gui->c_handler_set(ID_BUTTON_AUTH_IN, function() { // autherization
-                PhProxy::getInstance()->auth(false);
+                PhProxy::factory()->auth(false);
             });
             $gui->c_handler_set(ID_TIMER_NET_CLIENT, function() { // client-socket-timer
-                PhProxy::getInstance()->client->timer_worker();
+                PhProxy::factory()->client->timer_worker();
             });
             $gui->c_handler_set(ID_TIMER_NET_SERVER, function() { // server-socket-timer
-                PhProxy::getInstance()->socket->timer_worker();
+                PhProxy::factory()->socket->timer_worker();
             });
             $gui->c_handler_set(ID_TIMER_SYSTEM, function() { // system timer
-                PhProxy::getInstance()->tick();
+                PhProxy::factory()->tick();
             });
         
         // add system's timers
@@ -285,7 +285,7 @@ final class PhProxy_Kernel {
                 } if ($this->_auth_last_refresh < time()) { // expired
                     
                     // create task for sending request to API
-                    $added = PhProxy::getInstance('client')->new_query_to_api(
+                    $added = PhProxy::factory('client')->new_query_to_api(
                         PhProxy::api_make('keep_alive', array('time' => time())), 
                         function(&$cnx) {
 
@@ -331,14 +331,14 @@ final class PhProxy_Kernel {
         PhProxy::event('User wanna close the app!');
         
         // send terminated command to API
-        $added = PhProxy::getInstance('client')->new_query_to_api(
+        $added = PhProxy::factory('client')->new_query_to_api(
             PhProxy::api_make('logout', array('time' => time())), 
             function(&$cnx) {
 
                 if ($cnx['state'] == SOCKET_CLIENT_CLOSING) { // ok
                 
                     // hide window (i want to die alone, please)
-                    PhProxy::getInstance('gui')->visible(0);
+                    PhProxy::factory('gui')->visible(0);
                     PhProxy::event('Application terminated!'); 
                     exit;
 
@@ -447,16 +447,16 @@ final class PhProxy_Kernel {
                 function(&$cnx) {
                     if ($cnx['state'] == SOCKET_CLIENT_CLOSING) { // ok
                         
-                        PhProxy::getInstance()->auth($cnx['response']);   
+                        PhProxy::factory()->auth($cnx['response']);   
                         
                     } elseif ($cnx['state'] == SOCKET_CLIENT_TIMEOUTED) { // timeouted
                         
-                        PhProxy::getInstance()->auth('$TIMEOUT$');       
+                        PhProxy::factory()->auth('$TIMEOUT$');       
 
                         
                     } elseif ($cnx['state'] == SOCKET_CLIENT_NOT_OPENED) { // can't open
 
-                        PhProxy::getInstance()->auth('$CANT_CONNECT$');
+                        PhProxy::factory()->auth('$CANT_CONNECT$');
                         
                     }
                 }
@@ -631,7 +631,7 @@ final class PhProxy_Kernel {
                 $gui->button($lang->get('gui.auth', 'String6'), array(155, 220), array(100, 24), ID_BUTTON_AUTH_NO, 0, ID_FONT_AUTH_LABEL);
                 
                 // statusbar
-                $gui->statusBar(array(array(PhProxy::version('%an%/%avj%.%avn%.%avb% %avs% (%avd%)'), 170), array(PhProxy::version('   http://vk.shcneider.in '))));
+                $gui->statusBar(array(array(PhProxy::version('%an%/%avj%.%avn%.%avb% %avs% (%avd%)'), 200), array(PhProxy::version(' http://pproxy.ru '))));
 
                 // hyperlink
                 $gui->hyperlink($lang->get('gui.auth', 'String5'), array(100, 250), array(115, 20), ID_HYPER_FORUM, WBC_LINES, 0xFF8000, 0);

@@ -160,7 +160,7 @@ class PhProxy_Socket_Server {
     public function create($backlog = 128, $max_cnx = 1, $rbuf = 8192, $_sock_read_again_max = 1, $_timeout_silence = 1)
     {       
         // lang link
-        $lang = PhProxy::getInstance('lang');
+        $lang = PhProxy::factory('lang');
         
         // config it
         $this->_sock_max_backlog = $backlog;                    // set max half-open connections
