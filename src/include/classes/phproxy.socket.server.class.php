@@ -13,72 +13,128 @@
  * @link      http://alex.shcneider.in/ (author)
  **/
 
-// connections states
 
-// was accepted, now reading
+/**
+ * Socket-server state flag: connection was accepted, now is reading
+ */
 define('SOCKET_STATE_READING',       1);
 
-// has read, now parsing
+/**
+ * Socket-server state flag: has read, now is parsing request
+ */
 define('SOCKET_STATE_PARSING',       2);
 
-// do nothing and wainting
+/**
+ * Socket-server state flag: was parsed, now do nothing (wait client-socket state change)
+ */
 define('SOCKET_STATE_WAITING',       3);
 
-// has read (response), now parsing
+/**
+ * Socket-server state flag: response has read, now parsing response
+ */
 define('SOCKET_STATE_PARSING_RESP',  4);
 
-// have answer, now writing it
+/**
+ * Socket-server state flag: response was parsed, now write response to client
+ */
 define('SOCKET_STATE_WRITING',       5);
 
-// writed, now closing
+/**
+ * Socket-server state flag: response was sended, now closing socket and delete data
+ */
 define('SOCKET_STATE_CLOSING',       6);
 
-// have answer, now writing it and read again
-define('SOCKET_STATE_WRITING_KA',    7);
+/**
+ * Socket-server state flag: was parsed, now write to client and read again (Keep Alive connection)
+ */
+#define('SOCKET_STATE_WRITING_KA',    7);
 
 
-/*
+/**
  * Server Socket
+ * Managing of incoming connections 
  */
 class PhProxy_Socket_Server {
   
 // --------------------------------------------- >> Default options
     
-    // Sockets type (TCP only)
+    /**
+     * Default socket type
+     * (TCP only)
+     * @var string
+     */
     private $_sock_type = 'TCP';
     
-    // binding addr
+    /**
+     * Binding IP4 addres
+     * @var string
+     */
     private $_sock_ip = '0.0.0.0';
+    
+    /**
+     * Binding port
+     * @var int
+     */
     private $_sock_port = 80;
     
-    // max TCP backlog
+    /**
+     * Max of TCP-halfopen connections
+     * @var int
+     */
     private $_sock_max_backlog = 128;
-    
-    // max incoming connections
+
+    /**
+     * Max incoming connections
+     * @var int
+     */
     private $_sock_max_connections = 10;
 
     // socket reading buffer (bytes)
+    /**
+     * Read buffer (bytes)
+     * @var int
+     */
     private $_sock_read_buffer = 8192;
     
-    // read try again times
+    /**
+     * Readings in one cycle
+     * @var int
+     */
     private $_sock_read_again_max = 5; 
+    
+    /**
+     * Silence timeout
+     * @var int
+     */
+    private $_timeout_silence = 3;
     
     // timeoutes
     #private $_timeout = 30;
-    private $_timeout_silence = 3;
     
 // --------------------------------------------- >> RunTime Vars    
     
-    // socket resource
+    /**
+     * Listing socket resource
+     * @var resource
+     */
     private $_socket = null;
     
-    // opened connections
+    /**
+     * List of opened connections
+     * @var array
+     */
     private $_cnx = array();
     
 // --------------------------------------------- >> Public methods begin
     
-    
-    // AF_INET, SOCK_STREAM, SOL_TCP
+   
+    /**
+     * Set params of listing socket
+     * 
+     * @param string $ip
+     * @param int $port
+     * @return true 
+     */
     public function __construct($ip = '0.0.0.0', $port = 80)
     {
         // socket type 
@@ -90,11 +146,21 @@ class PhProxy_Socket_Server {
         return true;
     }
 
-    // socket create and start listing
+    
+    /**
+     * Create TCP socket and start listing
+     * 
+     * @param int $backlog
+     * @param int $max_cnx
+     * @param int $rbuf
+     * @param int $_sock_read_again_max
+     * @param int $_timeout_silence
+     * @return int
+     */
     public function create($backlog = 128, $max_cnx = 1, $rbuf = 8192, $_sock_read_again_max = 1, $_timeout_silence = 1)
     {       
         // lang link
-        $lang = PhProxy::getInstance()->lang;
+        $lang = PhProxy::getInstance('lang');
         
         // config it
         $this->_sock_max_backlog = $backlog;                    // set max half-open connections
@@ -104,15 +170,15 @@ class PhProxy_Socket_Server {
         $this->_timeout_silence = $_timeout_silence;            // silence timeout
             
         // debug
-        PhProxy::event('Max incoming connections: '.$this->_sock_max_connections);
-        PhProxy::event('Reading buffer: ' . $this->_sock_read_buffer . ' bytes');
-        PhProxy::event('Read again max: '.$this->_sock_read_again_max);
-        PhProxy::event('Timeout silence: ' . $this->_timeout_silence . ' seconds');
+        PhProxy::event('-Max incoming connections: '.$this->_sock_max_connections);
+        PhProxy::event('-Reading buffer: ' . $this->_sock_read_buffer . ' bytes');
+        PhProxy::event('-Read again max: '.$this->_sock_read_again_max);
+        PhProxy::event('-Timeout silence: ' . $this->_timeout_silence . ' seconds');
         
 
             // created already - need destroy and re-create
             if ($this->_socket) { 
-                PhProxy::fatal( // @TODO - Destroy socket and recreated
+                PhProxy::fatal( 
                     $lang->get('socket.server', 'error1')
                 );
             }
@@ -122,7 +188,7 @@ class PhProxy_Socket_Server {
 
             PhProxy::event('SOL_TCP is not defined!');
 
-            $proto = @getprotobyname('tcp');
+            $proto = getprotobyname('tcp');
                 if (!$proto || $proto == -1) {
                     PhProxy::event('getprotobyname is failed');
                     
@@ -181,22 +247,22 @@ class PhProxy_Socket_Server {
             return true;
     }
     
-    // worker
+    
+    /**
+     * Timer worker
+     * 
+     * @return bool
+     */
     public function timer_worker()
     {  
-        // if was Fatal Error
+        // if was Fatal Error - terminated listing
         if (defined('PHPROXY_FATAL')) {
             return false;
-        }
-
-        // not listing yet
-        if (!$this->_socket) { 
+        } if (!$this->_socket) {   // not listing yet
             return false;
         }
         
-        // global
-        $phproxy = &PhProxy::getInstance();
-          
+
         // foreach all opened connections
         foreach ($this->_cnx as $key => &$cnx)
         {    
@@ -225,12 +291,16 @@ class PhProxy_Socket_Server {
                 
                         $cnx['request'] = '$TIMEOUT_SILENCE$';
                         $cnx['state']   = SOCKET_STATE_PARSING;
-                            break;   
+                            break; 
+                            
                     }
                     
                     // reading
                     $this->_read($cnx['resource'], $cnx['request'], $cnx['state']);
-                    break;
+                        // break only if need read again
+                        if ($cnx['state'] != SOCKET_STATE_PARSING) {
+                            break;
+                        }
                 
                     
                 // has read, parsing
@@ -243,7 +313,7 @@ class PhProxy_Socket_Server {
                 // response parsing
                 case(SOCKET_STATE_PARSING_RESP):
                     PhProxy::new_response($key, $cnx);
-                    break;
+                    #break;
                       
                 
                 // write answer
@@ -254,11 +324,11 @@ class PhProxy_Socket_Server {
                 
                 
                 // write answer (in Keep-Alive mode) and reading again
-                case(SOCKET_STATE_WRITING_KA):
-                    $this->_write($cnx['resource'], $cnx['response']);
-                    $cnx['response'] = ''; $cnx['request'] = '';
-                    $cnx['state'] = SOCKET_STATE_READING;
-                    break;
+                #case(SOCKET_STATE_WRITING_KA):
+                    #$this->_write($cnx['resource'], $cnx['response']);
+                    #$cnx['response'] = ''; $cnx['request'] = '';
+                    #$cnx['state'] = SOCKET_STATE_READING;
+                    #break;
                 
                 
                 // closing and destroying data
@@ -305,7 +375,14 @@ class PhProxy_Socket_Server {
         
     }
     
-    // change state for some socket
+
+    /**
+     * Change state for some opened connection
+     * @param int $key
+     * @param int $state
+     * @param string $data
+     * @return bool
+     */
     public function state_set_for($key, $state, $data = 'Tro!')
     {
         // not exists
@@ -325,8 +402,12 @@ class PhProxy_Socket_Server {
     
 // --------------------------------------------- >> Private methods begin    
     
-    
-    // geturn details error
+    /**
+     * Return socket error
+     * 
+     * @param resource $r
+     * @return string
+     */
     private function _sock_error($r = null)
     {
         if ($r == null) {
@@ -342,7 +423,14 @@ class PhProxy_Socket_Server {
         return '#'.$code.' - '.PhProxy::cp2utf(socket_strerror($code));
     }
     
-    // read from server socket
+
+    /**
+     * Read data from socket
+     * @param resource $cnx
+     * @param string $request
+     * @param int $state
+     * @return bool
+     */
     private function _read($cnx, &$request, &$state)
     {      
         // readings counter
@@ -369,6 +457,7 @@ class PhProxy_Socket_Server {
 
                             $state = SOCKET_STATE_CLOSING;  // GOTO Closing socket
                             return true;
+                            
                         } // else
                     
                     // add reading to request
@@ -429,22 +518,87 @@ class PhProxy_Socket_Server {
    
     }
          
-    // write to socket
+    
+    /**
+     * Write  data to socket
+     * @param resource $cnx
+     * @param string $data
+     * @return bool
+     * @todo  Partital writing
+     */
     private function _write($cnx, $data)
     {
-        // @TODO - Partital writing
-        PhProxy::event_net(strlen($data).' bytes was sended into socket '.$cnx, 2); 
-        return socket_write($cnx, $data, strlen($data));
+        
+        PhProxy::event_net(strlen($data).' bytes need send into socket '.$cnx, 2); 
+        
+        $len =  strlen($data);
+        while (true) {
+            $sent = socket_write($cnx, $data, $len);
+
+            if ($sent === false) {
+                PhProxy::warn('Sending failed into socket '.$cnx); 
+                break;
+            }
+
+            // Check if the entire message has been sented
+            if ($sent < $len) {
+
+                 // If not sent the entire message.
+                 // Get the part of the message that has not yet been sented as message
+                 $data = substr($data, $sent);
+
+                 // Get the length of the not sented part
+                 $len -= $sent;
+                 
+                 PhProxy::event_net($len.' bytes was sended into socket '.$cnx, 2); 
+
+            } else {
+                 PhProxy::event_net($sent.' bytes was sended into socket '.$cnx, 2); 
+                 break;
+            }
+             
+        }
+        /*
+        $buf_len = 8192;
+        
+        
+         $pos = 0;
+            if ($len < $buf_len) {
+               return socket_write($cnx, $data, $len); 
+            }
+        
+        while ($pos < $len) {
+            $buf = substr($data, $pos, $buf_len); 
+                if (socket_write($cnx, $buf, strlen($buf))) {
+                    $pos += $buf_len;
+                } 
+        }    
+            
+            
+        return true;
+
+        */
     }
        
-    // close a socket
+    
+    /**
+     * Close a opened incoming connections
+     * @param resource $cnx
+     * @return bool
+     */
     private function _close($cnx)
     {
         PhProxy::event_net('Connection '.$cnx.' was closed!', 2);
         return socket_close($cnx);
     }
     
-    // destroy an array with cnx data
+    
+    /**
+     * Clean data about closed connection
+     * 
+     * @param int $key
+     * @return bool
+     */
     private function _destroy($key)
     {
         PhProxy::event_net('Connection '.$this->_cnx[$key]['resource'].' was destroyed!', 1);

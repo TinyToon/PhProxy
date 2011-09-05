@@ -15,10 +15,16 @@
 
 
 /**
- *  Interface to config manager 
- **/
+ *  Config manager
+ */
 final class PhProxy_Config extends PhProxy_Storage_INI {
     
+    /**
+     * Constructor. Call a parent contruct from PhProxy_Storage_INI
+     * 
+     * 
+     * @param type $file path to config file
+     */
     public function __construct($file) 
     {
         PhProxy::event(__CLASS__ . ' new instance with file ['.$file.']!');

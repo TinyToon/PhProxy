@@ -8,7 +8,6 @@
  * @author    Alex Shcneider <alex.shcneider at gmail dot com>
  * @copyright 2010-2011 (c) Alex Shcneider
  * @license   license.txt
- * @version   2.1.6
  * @link      http://github.com/Shcneider/PhProxy (sources, binares)
  * @link      http://vk.shcneider.in/forum (binares, support)
  * @link      http://alex.shcneider.in/ (author)
@@ -40,6 +39,7 @@ define('ID_LABEL_AUTH_PASS',   105);
 
 // buttons
 define('ID_BUTTON_AUTH_IN',    106); // auth button GO
+define('ID_BUTTON_AUTH_NO',    108);
 
 // hyper
 define('ID_HYPER_FORUM',       107); // register
@@ -47,6 +47,7 @@ define('ID_HYPER_FORUM',       107); // register
 // timers
 define('ID_TIMER_NET_CLIENT',   800); // timers
 define('ID_TIMER_NET_SERVER',   801);
+define('ID_TIMER_SYSTEM',       802);
 
 
 

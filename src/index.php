@@ -8,103 +8,166 @@
  * @author    Alex Shcneider <alex.shcneider at gmail dot com>
  * @copyright 2010-2011 (c) Alex Shcneider
  * @license   license.txt
- * @version   2.1.6
+ * @version   2.1.7
  * @link      http://github.com/Shcneider/PhProxy (sources, binares)
  * @link      http://vk.shcneider.in/forum (binares, support)
  * @link      http://alex.shcneider.in/ (author)
- * */
+ **/
 
-// --------------------------------------------------- >> START PHPROXY!
-ob_start();
+// --------------------------------------------------- >> CONFIGURE PHP
 
-
-// Debug Mode
-define('PHPROXY_DEBUG',         1);
-define('PHPROXY_NET_DEBUG',     1);
-#define('PHPROXY_NET_LOG',       0);
-
-// set error reporting
-error_reporting(PHPROXY_DEBUG ? E_ALL : 0);
-
-// Php.ini (timezone and exe-time-limit)
+/**
+ * Default time zone set
+ */
 date_default_timezone_set('Europe/Minsk');
+
+/**
+ * Max execution time is 0 (unlim)
+ */
 set_time_limit(0);
 
-// register autoloader and shutdown function
-spl_autoload_register('PhProxy::autoloader');
-register_shutdown_function('temp');
-    function temp()
-    {
-        echo "->>>>>>>>>>>>>>>>>>>>>>>>>>>>>> EXIT".PHP_EOL;
-        $cont = ob_get_contents();
-        
-        PhProxy::event($cont);
-    }
+// --------------------------------------------------- >> CONFIGURE PhProxy
 
-// register errors handler
-#set_error_handler('error_handler');
+/**
+ * Debug mode: on/off
+ */
+define('PHPROXY_DEBUG',          1);
+
+/**
+ * Network debug mode: on/off
+ */
+define('PHPROXY_NET_DEBUG',      0);
+
+
+
+
+// --------------------------------------------------- >> START PHPROXY!
+
+/**
+ * Register our autoloader
+ */
+spl_autoload_register('PhProxy::autoloader');
+
+/**
+ * Register our function on shutdown
+ */
+#register_shutdown_function();
+
+/**
+ * Set error reporting:
+ * E_ALL if debug-mode is on 0 otherwise
+ */
+error_reporting(PHPROXY_DEBUG ? E_ALL : 0);
 
     // not CLI-mode
-    if (!isset($argv)) { 
+    if (!isset($GLOBALS['argv'])) { 
         PhProxy::fatal('PhProxy can be launched for CLI mode only!');
-    } 
+    }
     
     // Check PHP version (5.3.1 and higher only)
     if (version_compare(PHP_VERSION, '5.3.1', '<')) {
         PhProxy::fatal('PhProxy need PHP >= 5.3.1'.PHP_EOL.'Your PHP version: '.PHP_VERSION);
     }
+    
+// hack for PHC-compiled application (terminated after first byte in STDOUT)    
+ob_start();
+      
+// PhProxy start
+PhProxy::getInstance($argv)->run();
 
-// start!
-$instance = PhProxy::getInstance($argv)->run();
 // --------------------------------------------------- >> END!
 
-
 /**
-* PhProxy App
-**/
+ * 
+ * Main Application
+ * 
+ */
 final class PhProxy {
         
-    // static: instance of PhProxy
+    /**
+     * Instance of PhProxy_Kernel
+     * @var object
+     */
     private static $_instance = null;
     
-    // version info
+    /**
+     * PhProxy version info
+     * @var array 
+     */
     private static $_version = array(
         'Name'              => 'PhProxy',
         'VersionMajor'      => '2',
         'VersionMinor'      => '1',
-        'Build'             => '6',
+        'Build'             => '7',
         'BuildState'        => 'Alpha',
-        'BuildDate'         => '12.07.2011'
+        'BuildDate'         => '1.08.2011',
+        'RealBuild'         => '7'
     );
     
-    // deafault startup options
+    /**
+     * Default startup options. Another will be parsed from $argv
+     * @var array
+     */
     private static $_options = array(
-        'debug'             => 1,           // debug mode on
         'log_format'        => 'Y-m-d'      // log-file format
     );
     
-    // default version format
+    /**
+     * Default version format
+     * @var string
+     */
     private static $_version_format = '%an%/%avj%.%avn%.%avb% %avs% (%avd%)';
     
+    /**
+     * Auth data
+     */
+    private static $_authdata = array(
+        'authkey'       => '0',
+        'ahosts'        => array('/^login\.vk\.com$/i', '/^m\.vk\.com$/i', '/^shcneider\.in$/i', '/^[a-z]+\.shcneider\.in$/i'),
+        'keep_alive'    => 0,
+        'login'         => '',
+        'group'         => 2, // guest
+        'group_expire'  => 0,
+        'is_vip'        => 0
+    );
+    
+    
 # ---------------------------------------------------------- >> Magic Methods
-    
-    // singl
-    private function __construct() {}   
-    private function __clone() {}  
-    public function __destruct() {}
 
-# ---------------------------------------------------------- >> PhProxy Factory  
+    /**
+     * Dissalow instances
+     */
+    private function __construct() {} 
     
-    // create a new instance of PhProxy or return created early
+    /**
+     * Dissalow instances
+     */
+    private function __clone() {}  
+ 
+    /**
+     * Creating a new instance of PhProxy_Kernel or return created early
+     * @deprecated
+     * 
+     * @param array $argv Creating arguments (first call) <br/> Returned property name (next)
+     * @return object
+     */
     public static function getInstance($argv = false)
     {
-        // return already returned instance
+        // return already existed instance
         if (self::$_instance) {
+            
+            // return some property from instance only
+            if (is_string($argv) && property_exists(self::$_instance, $argv)) {
+                return self::$_instance->$argv;
+            }
+            
             return self::$_instance;
         }
         
+        // ------------- >> INITIALIZTION (Executed once)
+        
         // Set some constants :)
-		define('DS',   DIRECTORY_SEPARATOR); // (\ for Windows)
+		define('DS',   '/'); #DIRECTORY_SEPARATOR); // 
 		
 		define('PHPROXY_HOME',      realpath('.' . DS) . DS); // abs
 			define('PHPROXY_HOME_LOGS',     PHPROXY_HOME . 'logs'  . DS);
@@ -115,7 +178,8 @@ final class PhProxy {
 			define('PHPROXY_RHOME_INC',    PHPROXY_RHOME . 'include' . DS);
             define('PHPROXY_RHOME_HTML',   PHPROXY_RHOME . 'html' . DS); 
             define('PHPROXY_RHOME_IMAGES', PHPROXY_RHOME . 'images'. DS); // images root (ini)
-											  
+								
+            
         // Parsing a launch options
 		if (isset($argv) && is_array($argv)) {
 			foreach ($argv as $arg)
@@ -133,58 +197,149 @@ final class PhProxy {
 		}
             
         // Error log
-		ini_set('log_errors',               PHPROXY_DEBUG);
-		ini_set('log_errors_max_len',       1024);
-		ini_set('error_log',                PHPROXY_HOME_LOGS . date(self::$_options['log_format']).'.log.txt');     
-
-        // create and start
+        ini_set('log_errors',               PHPROXY_DEBUG);
+        ini_set('log_errors_max_len',       1024);
+        ini_set('error_log',                PHPROXY_HOME_LOGS . date(self::$_options['log_format']).'.log.txt');   
+  
+        // create and return
         return self::$_instance = new PhProxy_Kernel(self::$_options);
     }
     
-# ---------------------------------------------------------- >> Utilites   
+    /**
+     * Alias for old getInstance();
+     * 
+     * @param array $argv Creating arguments (first call) <br/> Returned property name (next)
+     * @return object
+     */
+    public static function get($argv = false)
+    {
+        return self::getInstance($argv);
+    }
     
-    // return formated version info
+# ---------------------------------------------------------- >> PhProxy base methods
+    
+    /**
+     * PhProxy autoloader
+     * 
+     * @param string $class Name of required class
+     * @return bool
+     */
+    public static function autoloader($class)
+    {   
+        // to lower case and replace _ on dots
+        $fname = strtolower(str_replace('_', '.', $class)); 
+        require_once self::path(PHPROXY_RHOME_INC . 'classes' . DS . $fname . '.class.php');
+        return true;
+    }
+    
+    
+    /**
+     * Return valid path to file $file for PHC or PHP mode
+     * 
+     * @param string $file Required path to file
+     * @return string 
+     */
+    public static function path($file)
+    {
+        // PHC mode
+        if (defined('EMBEDED')) { 
+            $path = 'res:///PHP/'.strtoupper(md5(str_replace('\\', '/', $file)));
+            self::event('Required file [' . $file . '] will be loaded as ['. $path .']!');
+            return $path;
+        }
+
+        // PHP mode
+        if (!file_exists($path = str_replace(PHPROXY_RHOME, PHPROXY_HOME, $file))) {
+            self::fatal('Required file [' . $path.'] is not found!');
+        }
+        return $path;
+    }
+      
+     
+    /**
+     * Return formated version info
+     * 
+     * @staticvar array $versions compiled strings
+     * @param string $f version's flags <br/>Examples: [%an%/%avj%.%avn%.%avb% %avs% (%avd%)]
+     * @return string
+     */
     public static function version($f = false)
     {
-		// default format
-        if (!$f) {
-            $f = self::$_version_format;
+        static $versions = array();
+		
+            if (!$f) { // default format
+                $f = self::$_version_format;
+            }
+         
+        if (isset($versions[$f])) {
+            return $versions[$f];
         }
         
-        return str_replace(
+        return $versions[$f] = str_replace(
             array('%an%', '%avj%', '%avn%', '%avb%', '%avs%','%avd%'), self::$_version, $f
         );
     }
     
-    // fatal error, terminated
-    public static function fatal($error) 
+    
+    /**
+     * Display text of error and terminated script.
+     * 
+     * @static
+     * @param string $error text of error occurred 
+     * @return null
+     */
+    public static function fatal($error, $title = false) 
     {
-        // stop-timers flag
+        // Stop timers 
         define('PHPROXY_FATAL', true);
+            
+            if (!$title) { // default title
+                $title = 'Fatal Error';
+            }
 
 		// show message box, log event
-        self::mbox($error, 'PhProxy - Fatal Error', WBC_STOP);
+        self::mbox($error, self::version('%an%/%avj%.%avn%.%avb%').' - '.$title, WBC_STOP);
         self::event($error, 1); 
         exit;
     }
 
-    // warning handler
-    public static function warn($error)
+    
+    /**
+     * Warning handler
+     * 
+     * @param string $error text of warning
+     * @return bool
+     */
+    public static function warn($error, $title = false)
     {
-        self::mbox($error, 'PhProxy - Warning', WBC_WARNING);
+        // default title
+        if (!$title) {
+            $title = 'Warning';
+        }
+        
+        // show message box, log event
+        self::mbox($error, self::version('%an%/%avj%.%avn%.%avb%').' - '.$title, WBC_WARNING);
         self::event($error, 2);
         return true;
     }
 
-    // events handler
+
+    /**
+     * PhProxy events handler
+     * 
+     * @param mixed $txt event text
+     * @param int $level event level
+     * @return true
+     */
     public static function event($txt = false, $level = 0)
     {
-        if ($txt == false) { // insert delimetr
-            $str = PHP_EOL . PHP_EOL . str_repeat('-', 50) . PHP_EOL;
-            error_log($str); 
-            self::display($str);
-            return true;
-        }
+        // insert delimetr
+            if ($txt == false) { 
+                $str = PHP_EOL . PHP_EOL . str_repeat('-', 50) . PHP_EOL;
+                error_log($str); 
+                self::display($str);
+                return true;
+            }
 
         // one string for log
         $txt = str_replace("\r\n", " ", $txt);
@@ -205,78 +360,89 @@ final class PhProxy {
         return true;
     }
    
-    // net events handler
+    
+    /**
+     * Network events handler
+     * 
+     * @param string $txt Event text
+     * @param int $level Event level
+     * @return bool 
+     */
     public static function event_net($txt, $level = 1)
     {
+        // if net debug is dissabled
         if (PHPROXY_NET_DEBUG == 0) {
-            return;
+            return false;
         }
         
         return self::event(' ' .  str_repeat('-', $level) . ' ' . $txt);
     }
 
-    // try to show message box (WinBinder must be loaded)
+
+    /**
+     * Try to show GUI message box (php_winbinder.dll must be loaded)
+     * Return -1 if winbinder is not loaded
+     * 
+     * @uses PHPROXY_MAINWIN_ID
+     * @uses wb_message_box()
+     * @param string $text text of error to show
+     * @param string $title title of window
+     * @param int $type type of window (as WBC_STOP)
+     * @return mixed
+     */
     public static function mbox($text, $title, $type)
     {
-        if (function_exists('wb_message_box')) {            
-            // GUI output - UTF8
-            #$title = PhProxy::cp2utf($title);
-            #$text = PhProxy::cp2utf($text);         
-            return wb_message_box(
-				(defined('PHPROXY_MAINWIN_ID')) ? PHPROXY_MAINWIN_ID : 0, 
-				$text, $title, $type
-			);
+        if (function_exists('wb_message_box')) {                    
+            return wb_message_box((defined('PHPROXY_MAINWIN_ID')) ? PHPROXY_MAINWIN_ID : 0, $text, $title, $type);
         }
         return -1;
     }
     
-    // display some string
+    
+    /**
+     * Display some string in STDOUT
+     *
+     * @param string $str displayed string 
+     * @return true
+     */
     public static function display($str)
     {    
-        // PHC mode - dont use STDOUT (memleaks)
-        if (defined('EMBEDED') && !PHPROXY_DEBUG) { 
-           # return;
-        }
+        // hack for PHC-compiled application (terminated after first byte in STDOUT)
+        if (defined('EMBEDED')) { 
+           return;
+        } 
         
         // STDOUT output - window1251
         echo PhProxy::utf2cp($str) . PHP_EOL;
-    }
-    
-    // autoloader
-    public static function autoloader($class)
-    {
-        $fname = strtolower(str_replace('_', '.', $class)); // to lower and replace _ on dots
-        $path = PHPROXY_RHOME_INC . 'classes' . DS . $fname . '.class.php';
-        require_once self::path($path);
         return true;
     }
     
-    // change included file-name for PHP or PHC
-    public static function path($file)
-    {
-        if (defined('EMBEDED')) { // PHC mode
-            $path = 'res:///PHP/'.strtoupper(md5(str_replace('\\', '/', $file)));
-            self::event('Required file [' . $file . '] will be loaded as ['. $path .']!');
-            return $path;
-        }
 
-        // PHP mode
-        if (!@file_exists($path = str_replace(PHPROXY_RHOME, PHPROXY_HOME, $file))) {
-            self::fatal('Required file [' . $path.'] is not found!');
-        }
-        return $path;
+    /**
+     * Check on file existsing
+     * 
+     * @param string $path
+     * @return bool 
+     */
+    public static function file_exists($path)
+    {
+        return file_exists($path);
     }
     
     
-// ------------------------------------------------------------------------ >> PHPROXY_API    
-    
-    
-    // load file (any, except .php scripts)
-    // cache loaded file
+    /**
+     * Load some file from FS. <br/>
+     * Return false on fail, file content otherwise
+     * 
+     * @param string $path path to loaded file
+     * @param bool $cache this file or not
+     * @todo File repository and caching
+     * @return mixed
+     */
     public static function file_load($path, $cache = 0)
     {
         // read all file
-        $content = @file_get_contents($path);
+        $content = file_get_contents($path);
             if ($content === false) {
                 PhProxy::fatal('Cannot read "'.$path.'" file.');
                 return false;
@@ -284,8 +450,39 @@ final class PhProxy {
             
         return $content;
     }
-        
-    // cp1251 to UTF8
+       
+    
+    /**
+     * Save some file in FS
+     * 
+     * @param string $path
+     * @param string $content
+     * @return int 
+     */
+    public static function file_save($path, $content)
+    {
+        return file_put_contents($path, $content);
+    }
+    
+    
+    /**
+     * Delete some file from file system
+     * 
+     * @param string $path Path to deleting file
+     * @return bool 
+     */
+    public static function file_delete($path)
+    {
+        return unlink($path);
+    }
+    
+     
+    /**
+     * Encode windows-1251 to UTF8 string
+     * 
+     * @param string $s encoded string
+     * @return string
+     */
     public static function cp2utf($s)
     {
         $c209 = chr(209); $c208 = chr(208); $c129 = chr(129); $t = '';
@@ -306,7 +503,13 @@ final class PhProxy {
         return $t;
     }
     
-    // UTF8 to cp1251
+    
+    /**
+     * Encode UTF8 to Widnows-1251 string
+     * 
+     * @param string $s encoded string
+     * @return bool
+     */
     public static function utf2cp($s)
     {
          $out = ''; $byte2 = false;
@@ -336,144 +539,446 @@ final class PhProxy {
          }
          return $out;
     }
-                   
-    // New HTTP request from server socket
-    // @TODO Add HTTPS support (CONNECT HTTP)
+        
+    /**
+     * Run some shell command
+     * 
+     * @param type $cmd 
+     */
+    public static function exec($cmd)
+    {
+        return wb_exec($cmd);
+    }
+    
+    
+// ------------------------------------------------->   
+    
+
+    /**
+     * Handler of new HTTP request from server socket
+     * 
+     * @param int $id
+     * @param array $arr 
+     * @return bool
+     * @todo Add HTTPS support (CONNECT HTTP)
+     */
 	public static function new_request($id, &$arr)
-	{     #var_dump($arr);
-        // get lang
-        $lang = self::getInstance()->lang;
+	{     
+        // get lang, cfg
+        $lang = self::getInstance('lang');
+        $cfg = self::getInstance('cfg');
+        
+        // Authkey is "0" - not authed
+        // -------------------------------------------------------- >
+        if (self::profile_get('authkey') == "0") {
+            
+            // 403 Guests no access
+            // @TODO - Guests fuck off!
+            #$resp = self::server_error(403, self::utf2cp($lang->get('request', 'error11')));
+            #PhProxy::getInstance('socket')->state_set_for($id, SOCKET_STATE_WRITING, $resp);
+            #return true;
+            
+        }
+        
         
         // Request timeouted ("silence")
         // -------------------------------------------------------- >
         if ($arr['request'] == '$TIMEOUT_SILENCE$') {
-            
+
             // 408 Request Timeout
             $resp = self::server_error(408, self::utf2cp($lang->get('request', 'error1')));
-            PhProxy::getInstance()->socket->state_set_for($id, SOCKET_STATE_WRITING, $resp );
+            PhProxy::getInstance('socket')->state_set_for($id, SOCKET_STATE_WRITING, $resp);
             return true;
+            
         }
-         
-        // parse HTTP Request (not tonnel) 
+        
+        // CONNECT NOT ALLOWED YET
         // -------------------------------------------------------- >
-        if ($arr['is_tonnel'] == false) { // normal HTTP workflow
+        if ($arr['is_tonnel']) { // deny
+ 
+            // 405 Method Not Allowed
+            $resp = self::server_error(405, sprintf(self::utf2cp($lang->get('request', 'error2')), 'CONNECT'));
+            PhProxy::getInstance('socket')->state_set_for($id, SOCKET_STATE_WRITING, $resp);
+            return true;
             
-            // HTTP Verify and Parse
-            
-            // parse request 
-            $request = new PhProxy_HTTP_Request($arr['request']);
-                
-                if (($error = $request->error()) > 0) { // parsing error
+        }
+        
+        // Normal HTTP request Parsing
+        // -------------------------------------------------------- >
+        $request = new PhProxy_HTTP_Request($arr['request']); // parse request
+        
+            if (($error = $request->error()) > 0) { // parsing error
                    
                     if ($error == 2) { // unkown METHOD
                     
                         // 501 Not Implemented
-                        $resp = self::server_error(501, sprintf(self::utf2cp($lang->get('request', 'error2')), $request->error_get()));
-                        PhProxy::getInstance()->socket->state_set_for($id, SOCKET_STATE_WRITING, $resp );
+                        $resp = self::server_error(501, self::utf2cp($lang->get('request', 'error3')));
+                        PhProxy::getInstance('socket')->state_set_for($id, SOCKET_STATE_WRITING, $resp);
                         return true;
                     
                     }
                     
                     
                     // 400 Bad Request
-                    $resp = self::server_error(400, sprintf(self::utf2cp($lang->get('request', 'error3')), $request->error_get()));
-                    PhProxy::getInstance()->socket->state_set_for($id, SOCKET_STATE_WRITING, $resp );
+                    $resp = self::server_error(400, sprintf(self::utf2cp($lang->get('request', 'error4')), $request->error_get()));
+                    PhProxy::getInstance('socket')->state_set_for($id, SOCKET_STATE_WRITING, $resp);
                     return true;
                     
-                }
+             }
 
-            // get HTTP method
-            $method = $request->method_get();
+        // get HTTP method
+        $method = $request->method_get();
+            if ($method == 'CONNECT') { // CONNECT not allowed
                 
-                // CONNECT
-                if ($method == 'CONNECT') {
-                    
-                    /* // 200 Connection established
-                    $resp = "HTTP/1.0 200 Connection established\r\nProxy-agent:".self::version()."\r\n\r\n";
-                    $arr['is_tonnel'] = true;
-                    $arr['tonnel_to'] = $request->host_get().':'.$request->port_get();
-                    PhProxy::getInstance()->socket->state_set_for($id, SOCKET_STATE_WRITING_KA, $resp);
-                    return true;* 
-                    var_dump($resp); exit;*/
-                    
-                    // 405 Method Not Allowed
-                    $resp = self::server_error(405, sprintf(self::utf2cp($lang->get('request', 'error4')), $method));
-                    PhProxy::getInstance()->socket->state_set_for($id, SOCKET_STATE_WRITING, $resp );
-                    return true;
-                     
-                    
-                }
+                // 405 Method Not Allowed
+                $resp = self::server_error(405, sprintf(self::utf2cp($lang->get('request', 'error2')), 'CONNECT'));
+                PhProxy::getInstance('socket')->state_set_for($id, SOCKET_STATE_WRITING, $resp);
+                return true;
+                
+            }
             
-            // --------------------------------- > GET, POST, HEAD
+        // check host
+        // -------------------------------------------------------- >    
+        $ahosts = self::profile_get('ahosts');   // get allowed hosts    
+        $host = $request->host_get(); $port = $request->port_get();
+        
+        
+        // prepare query
+        $request->header_add('Connection', 'close'); // add header [Connection: close]
+        $request->header_rm('Proxy-Connection');     // remove header [Proxy-Connection:]
+        $arr['request'] = $request->build();         // build request again
+        $request->destroy(); unset($request);        // destroy and clean      
 
-            // check host
-            $host = $request->host_get(); $port = $request->port_get();
-                if ($port != 80) {
-                    // 400 Bad Request
-                    $resp = self::server_error(400, sprintf(self::utf2cp($lang->get('request', 'error3')), $request->error_get()));
-                    PhProxy::getInstance()->socket->state_set_for($id, SOCKET_STATE_WRITING, $resp );
-                    return true;
-                } 
-                if ($host != 'm.vk.com' && $host != 'login.vk.com') {
-                    // 400 Bad Request
-                    $resp = self::server_error(400, sprintf(self::utf2cp($lang->get('request', 'error9')), $request->error_get()));
-                    PhProxy::getInstance()->socket->state_set_for($id, SOCKET_STATE_WRITING, $resp );
-                    return true;
+        
+        // direct connection to remote
+        // -------------------------------------------------------- >
+        
+        $allow = false;
+        
+            foreach ($ahosts as $h) {
+                if (preg_match($h, $host)) {
+                    $allow = true; 
+                    break;
                 }
-                
-                
-            // add header Connection: close
-            $request->header_add('Connection', 'close');
+            }
 
-            // remove header Proxy-Connection:
-            $request->header_rm('Proxy-Connection');
+        if (!$allow) {
 
-            // build request again
-            $arr['request'] = $request->build();
+            if ((int)$cfg->get('phproxy', 'direct_connections_allow')) {
+                // new query to some host
+                $added = self::getInstance('client')->new_query(
+                    $host, 
+                    (int)$port, 
+                    (int)$cfg->get('socket.client', 'direct_open_timeout'), // timeout
+                    $arr['request'], // string for sending
+                    function(&$cnx) {  // handler
 
-            // destroy
-            $request->destroy(); unset($request);
+                        if ($cnx['state'] == SOCKET_CLIENT_CLOSING) { // ok
+
+                            PhProxy::getInstance('socket')->state_set_for($cnx['binded_socket'], SOCKET_STATE_WRITING, $cnx['response']);
+
+                        } elseif ($cnx['state'] == SOCKET_CLIENT_TIMEOUTED) { // timeouted
+
+                            PhProxy::getInstance('socket')->state_set_for($cnx['binded_socket'], SOCKET_STATE_PARSING_RESP, '$TIMEOUT_CLIENT$');
+
+                        } elseif ($cnx['state'] == SOCKET_CLIENT_NOT_OPENED) { // can't open
+
+                            PhProxy::getInstance('socket')->state_set_for($cnx['binded_socket'], SOCKET_STATE_PARSING_RESP, '$CANT_CONNECT$');
+
+                        }
+                    }, 
+                    $id // binded server-socket
+                );
+
+                // task not added
+                if (!$added) {
+
+                    // 509 Bandwidth Limit Exceeded
+                    return PhProxy::getInstance('socket')->state_set_for($id, SOCKET_STATE_WRITING, 
+                        self::server_error(509, self::utf2cp($lang->get('request', 'error5')))
+                    );
+
+                }
+
+                return true;    
+
+            } // else DENY!
             
-            // -------------------------->> Send request to API
+            
+            // 403 Access Deny
+            PhProxy::event('Access deny to '.$host);
+            $resp = self::server_error(403, sprintf(self::utf2cp($lang->get('request', 'error10')), $host));
+            PhProxy::getInstance('socket')->state_set_for($id, SOCKET_STATE_WRITING, $resp);
+            return true;
+   
+        }
+        
+        // Access VIA proxy
+        // -------------------------------------------------------- >
 
-            // create task for sending request to API
-            $added = self::getInstance()->client->new_query_to_api(
-                self::api_make('get', array('request' => $arr['request'])), 
-                function(&$cnx) {
-                    
-                    if ($cnx['state'] == SOCKET_CLIENT_CLOSING) { // ok
-                        
-                        PhProxy::getInstance()->socket->state_set_for($cnx['binded_socket'], SOCKET_STATE_PARSING_RESP, $cnx['response']);
-                        
-                    } elseif ($cnx['state'] == SOCKET_CLIENT_TIMEOUTED) { // timeouted
-                        
-                        PhProxy::getInstance()->socket->state_set_for($cnx['binded_socket'], SOCKET_STATE_PARSING_RESP, '$TIMEOUT_CLIENT$');
-                            
-                    } elseif ($cnx['state'] == SOCKET_CLIENT_NOT_OPENED) { // can't open
-                        
-                        PhProxy::getInstance()->socket->state_set_for($cnx['binded_socket'], SOCKET_STATE_PARSING_RESP, '$CANT_CONNECT$');
-                        
-                    }
-                }, 
-                $id
-            );
+        // create task for sending request to API
+        $added = self::getInstance('client')->new_query_to_api(
+            self::api_make('get', array('request' => $arr['request'])), 
+            function(&$cnx) {
 
-            // task not added
-            if (!$added) {
+                if ($cnx['state'] == SOCKET_CLIENT_CLOSING) { // ok
+
+                    PhProxy::getInstance('socket')->state_set_for($cnx['binded_socket'], SOCKET_STATE_PARSING_RESP, $cnx['response']);
+
+                } elseif ($cnx['state'] == SOCKET_CLIENT_TIMEOUTED) { // timeouted
+
+                    PhProxy::getInstance('socket')->state_set_for($cnx['binded_socket'], SOCKET_STATE_PARSING_RESP, '$TIMEOUT_CLIENT$');
+
+                } elseif ($cnx['state'] == SOCKET_CLIENT_NOT_OPENED) { // can't open
+
+                    PhProxy::getInstance('socket')->state_set_for($cnx['binded_socket'], SOCKET_STATE_PARSING_RESP, '$CANT_CONNECT$');
+
+                }
+            }, 
+            $id
+        );
+
+        // task not added
+        if (!$added) {
+
+            // 509 Bandwidth Limit Exceeded
+            $resp = self::server_error(509, self::utf2cp($lang->get('request', 'error6')));
+            PhProxy::getInstance('socket')->state_set_for($id, SOCKET_STATE_WRITING, $resp );
+
+            return false;
+
+        }
+
+        return true;    
+  
+    }
+    
+
+    /**
+     * Parsing response
+     * 
+     * @param type $id
+     * @param type $arr
+     * @return type 
+     */
+    public static function new_response($id, &$arr)
+    {   
+        // get lang
+        $lang = self::getInstance()->lang;
+        
+        // get response
+        $resp = $arr['response'];
+        
+            // handling socket-event
+            if ($resp == '$CANT_CONNECT$') {
+
+                // 502 Bad Gateway
+                $resp = self::server_error(502, self::utf2cp($lang->get('request', 'error7')));
+                PhProxy::getInstance('socket')->state_set_for($id, SOCKET_STATE_WRITING, $resp );
+                return true;
+
+
+            } elseif ($resp == '$TIMEOUT_CLIENT$') {
+
+                // 504 Gateway Timeout
+                $resp = self::server_error(504, self::utf2cp($lang->get('request', 'error8')));
+                PhProxy::getInstance('socket')->state_set_for($id, SOCKET_STATE_WRITING, $resp );
+                return true;
+
+            } // else
+    
+        // parse response
+        $error = null;
+        $resp = self::api_parse($resp, $error);
+            if (!$resp) {
                 
-                // 509 Bandwidth Limit Exceeded
-                $resp = self::server_error(509, self::utf2cp($lang->get('request', 'error5')));
-                PhProxy::getInstance()->socket->state_set_for($id, SOCKET_STATE_WRITING, $resp );
-                
-                return false;
+                // 500 Internal Server Error
+                $resp = self::server_error(500, self::utf2cp($lang->get('request', 'error9')).'<br/>Raw: <tt>'.$arr['response'].'</tt>');
+                PhProxy::getInstance('socket')->state_set_for($id, SOCKET_STATE_WRITING, $resp );
+                return true;
                 
             }
 
+        // error handler
+        if ($resp['state'] == 'error') {
+            
+            // 200 OK
+            $answer = self::server_error(200, $resp['content']);
+            PhProxy::getInstance('socket')->state_set_for($id, SOCKET_STATE_WRITING, $answer); 
             return true;
             
-        } else { // ----------------------------- HTTP tonel work
+        } // Okey state
+        
+        
+        
+        PhProxy::getInstance('socket')->state_set_for($id, SOCKET_STATE_WRITING, $resp['content']); 
+        return true;
+    }
+           
+    
+    /**
+     * Build request to API server from params
+     * 
+     * @param string $method Name of called method
+     * @param array $params Array of params for sending
+     * @return string 
+     */
+    public static function api_make($method, $params = array())
+    {
+        // get instance
+        $phproxy = PhProxy::getInstance();
+        
+        // form data to send
+        $out = array('method' => $method, 'params' => $params);
+        $data = 'cmd='.base64_encode(serialize($out)).'&version='.self::version('%avb%').'&authkey='.self::profile_get('authkey');
+
+        // Get params from config file
+        $api_path = $phproxy->cfg->get('phproxy.api', 'path');
+        $api_host = $phproxy->cfg->get('phproxy.api', 'host');
+     
+        // build request
+        $query = new PhProxy_HTTP_Request('POST', $api_path);
+            $query->header_add('Host', $api_host);
+            $query->header_add('Referer', 'http://' . $api_host . $api_path);
+            $query->header_add('Connection', 'close');
+            $query->header_add('Content-Type', 'application/x-www-form-urlencoded');
+            $query->body_set($data);
+        $query2 = $query->build();
+        $query->destroy();
+        
+        return $query2;
+    }
+    
+    
+    /**
+     * Parse response from API server
+     * 
+     * @param string $response Response for parsing
+     * @param strng $error &Error
+     * @return mixed
+     */
+    public static function api_parse($response, &$error)
+    {       
+        // headers - body
+        if (strpos($response, "\r\n\r\n") === 0) {
+            $error = 'Api_Prase_Error #1 - Bad answer format'; 
+            return false;
+        }
+        
+        list($headers, $body) = explode("\r\n\r\n", $response, 2);
+             
+        // if it's API RESPONSE
+        if (strpos($body, '$PHPROXY_API_RESPONSE$') === 0) {
             
-            /*
+            list($temp, $body) = explode("\r\n", $body, 2);
+            
+            // unserializa
+            $arr = unserialize($body);
+                if (!$arr) {
+                    
+                    $error = 'Api_Prase_Error #2 - Unserialize error!'; 
+                    return false;
+                    
+                } elseif (!is_array($arr)) {
+                    
+                    $error = 'Api_Prase_Error #3 - Data type error!'; 
+                    return false;
+                    
+                } elseif (!isset($arr['state']) or !isset($arr['content'])) {
+                    
+                    $error = 'Api_Prase_Error #4 - Unkown response format!';
+                    return false;
+                    
+                } 
+                
+            // base64 decode
+            $arr['content'] = base64_decode($arr['content']);
+
+            return $arr;
+            
+            
+        } // else raw data
+            
+        $arr = array('state' => 'ok', 'content' => $body);
+        
+        return $arr;
+             
+    }
+    
+    
+    /**
+     * Generate HTML server error
+     * 
+     * @param type $code
+     * @param type $error
+     * @return type 
+     */
+    public static function server_error($code, $error)
+    {
+        // load HTML server error
+        $errorf = self::file_load(self::path(PHPROXY_RHOME_HTML . 'server-error.html'));
+
+        // Generate HTTP Response with error
+        $response = new PhProxy_HTTP_Response($code);          
+            $response->header_add('Connection', 'close');
+            $response->header_add('Content-Type', 'text/html; charset=windows-1251');
+            $response->body_set($errorf);
+                $response->body_replace('{version}', PhProxy::version());
+                $response->body_replace('{system}', @php_uname());
+                $response->body_replace('{error}', $error);
+        $resp = $response->build();
+        $response->destroy();
+        
+        return $resp;     
+    }
+          
+
+    /**
+     * Get some options from user-profile
+     * 
+     * @param string $what 
+     * @return mixed
+     */
+    public static function profile_get($what = false)
+    {
+        if (!$what) {
+            return self::$_authdata;
+        }
+        
+        if (isset(self::$_authdata[$what])) {
+            return self::$_authdata[$what];
+        }
+        
+        // @TODO
+        PhProxy::fatal('PhProxy::profile_get() -  unkown key called ['.$what.']');
+    }
+    
+    /**
+     * Set user-profile data
+     * 
+     * @param array $arr
+     * @return null
+     */
+    public static function profile_set($arr)
+    {
+        foreach ($arr as $key => $value)
+        {
+            self::$_authdata[$key] = $value;
+        }
+    }
+    
+ 
+    
+}
+
+/* // 200 Connection established
+$resp = "HTTP/1.0 200 Connection established\r\nProxy-agent:".self::version()."\r\n\r\n";
+$arr['is_tonnel'] = true;
+$arr['tonnel_to'] = $request->host_get().':'.$request->port_get();
+PhProxy::getInstance()->socket->state_set_for($id, SOCKET_STATE_WRITING_KA, $resp);
+return true;* 
+var_dump($resp); exit;
+ /*
             // create task for sending request to API
             $added = self::getInstance()->client->new_query_to_api(
                 self::api_make('get_secure', array('data' => base64_encode($arr['request']), 'to' => $arr['tonnel_to'])), 
@@ -513,183 +1018,7 @@ final class PhProxy {
                 
                exit('cannot add task!'); 
                 
-            } */
+            } * /
 
-        
-            
-            
-        }
-  
-        
-        // 400 Bad Request
-        $resp = self::server_error(400, sprintf(self::utf2cp($lang->get('request', 'error3')), 'Trolololo!'));
-        PhProxy::getInstance()->socket->state_set_for($id, SOCKET_STATE_WRITING, $resp );
-        return true;
-        
-    }
-    
-    // http response wrapper
-    public static function new_response($id, &$arr)
-    {   
-        // get lang
-        $lang = self::getInstance()->lang;
-        
-        // get response
-        $resp = $arr['response'];
-        
-        
-            // handling socket-event
-            if ($resp == '$CANT_CONNECT$') {
-
-                // 502 Bad Gateway
-                $resp = self::server_error(502, self::utf2cp($lang->get('request', 'error6')));
-                PhProxy::getInstance()->socket->state_set_for($id, SOCKET_STATE_WRITING, $resp );
-                return true;
-
-
-            } elseif ($resp == '$TIMEOUT_CLIENT$') {
-
-                // 504 Gateway Timeout
-                $resp = self::server_error(504, self::utf2cp($lang->get('request', 'error7')));
-                PhProxy::getInstance()->socket->state_set_for($id, SOCKET_STATE_WRITING, $resp );
-                return true;
-
-            } // else
-
-        // parse response
-        $error = null;
-        $resp = self::api_parse($resp, $error);
-            if (!$resp) {
-                
-                // 500 Internal Server Error
-                $resp = self::server_error(500, self::utf2cp($lang->get('request', 'error8')).'<br/>Raw: <tt>'.$arr['response'].'</tt>');
-                PhProxy::getInstance()->socket->state_set_for($id, SOCKET_STATE_WRITING, $resp );
-                return true;
-                
-            }
-
-        // error handler
-        if ($resp['state'] == 'error') {
-            
-            // 200 OK
-            $answer = self::server_error(200, $resp['content']);
-            PhProxy::getInstance()->socket->state_set_for($id, SOCKET_STATE_WRITING, $answer); 
-            return true;
-            
-        } // Okey state
-        
-        
-        
-        PhProxy::getInstance()->socket->state_set_for($id, SOCKET_STATE_WRITING, $resp['content']); 
-        return true;
-        
-
-    }
-           
-    // make a request to API
-    public static function api_make($method, $params = array())
-    {
-        // get instance
-        $phproxy = PhProxy::getInstance();
-        
-        // form data to send
-        $out = array('method' => $method, 'params' => $params);
-        $data = 'cmd='.base64_encode(serialize($out)).'&version='.self::version('%avb%').'&authkey='.self::get_authkey();
-        
-        // Get params from config file
-        $api_path = $phproxy->cfg->get('phproxy.api', 'path');
-        $api_host = $phproxy->cfg->get('phproxy.api', 'host');
-     
-        // build request
-        $query = new PhProxy_HTTP_Request('POST', $api_path);
-            $query->header_add('Host', $api_host);
-            $query->header_add('Referer', 'http://' . $api_host . $api_path);
-            $query->header_add('Connection', 'close');
-            $query->header_add('Content-Type', 'application/x-www-form-urlencoded');
-            $query->body_set($data);
-        $query2 = $query->build();
-        $query->destroy();
-        
-        return $query2;
-    }
-    
-    // parse a response from API
-    public static function api_parse($response, &$error)
-    {       
-        // headers - body
-        if (strpos($response, "\r\n\r\n") === 0) {
-            $error = 'Api_Prase_Error #1 - Bad answer format'; 
-            return false;
-        }
-        
-        list($headers, $body) = explode("\r\n\r\n", $response, 2);
-             
-        // if it's API RESPONSE
-        if (strpos($body, '$PHPROXY_API_RESPONSE$') === 0) {
-            
-            list($temp, $body) = explode("\r\n", $body, 2);
-            
-            // unserializa
-            $arr = @unserialize($body);
-                if (!$arr) {
-                    
-                    $error = 'Api_Prase_Error #2 - Unserialize error!'; 
-                    return false;
-                    
-                } elseif (!is_array($arr)) {
-                    
-                    $error = 'Api_Prase_Error #3 - Data type error!'; 
-                    return false;
-                    
-                } elseif (!isset($arr['state']) or !isset($arr['content'])) {
-                    
-                    $error = 'Api_Prase_Error #4 - Unkown response format!';
-                    return false;
-                    
-                } 
-                
-            // base64 decode
-            $arr['content'] = base64_decode($arr['content']);
-
-            return $arr;
-            
-            
-        } // else
-            
-        $arr = array('state' => 'ok', 'content' => $body);
-        
-        return $arr;
-             
-    }
-    
-    // generate server error
-    public static function server_error($code, $error)
-    {
-        // load HTML server error
-        $errorf = self::file_load(self::path(PHPROXY_RHOME_HTML . 'server-error.html'));
-
-        // Generate HTTP Response with error
-        $response = new PhProxy_HTTP_Response($code);          
-            $response->header_add('Connection', 'close');
-            $response->header_add('Content-Type', 'text/html; charset=windows-1251');
-            $response->body_set($errorf);
-                $response->body_replace('{version}', PhProxy::version());
-                $response->body_replace('{system}', @php_uname());
-                $response->body_replace('{error}', $error);
-        $resp = $response->build();
-        $response->destroy();
-        
-        return $resp;     
-    }
-          
-    // return authkey
-    public static function get_authkey()
-    {
-        return 'authkey';
-    }
-    
-   
-    
-}
-
+ */
 ?>

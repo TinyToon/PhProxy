@@ -17,19 +17,33 @@
 
 /**
  * Data storage based on .ini files
+ * 
+ * @todo create methods: exists($section, $key), section_exists($section), set($section, $key, $value), section_get($section):array 
  */
 class PhProxy_Storage_INI {
 
-    // loaded file
+    /**
+     * Path to loaded file
+     * @var string 
+     */
     private $_file = null;
 
-    // registry
+    /**
+     * Data registry
+     * @var array
+     */
     private $_registry = array();
 
 
 // -------------------------------------------> METHODS
 
-    // Load and parse file
+    /**
+     * Load and parse config file
+     * 
+     * @param string $file path to config file
+     * @param bool $buildin don't use yet
+     * @return bool
+     */
     public function __construct($file, $buildin = false)
     {
         // set .ini file
@@ -70,7 +84,13 @@ class PhProxy_Storage_INI {
     }
 
 
-    // return some key $key from section $section
+    /**
+     * Get some $key from some $section if exists or false otherwise
+     * 
+     * @param string $section Section from .ini file
+     * @param string $key Key from .ini file
+     * @return mixed 
+     */
     public function get($section, $key)
     {
         if (!array_key_exists($section, $this->_registry)) {
@@ -82,16 +102,20 @@ class PhProxy_Storage_INI {
         return $this->_registry[$section][$key];
     }
 
-    /*******************************************************************************
-
-     Part of WINBINDER - The native Windows binding for PHP for PHP
-
-     Copyright © Hypervisual - see LICENSE.TXT for details
-     Author: Rubem Pechansky (http://winbinder.org/contact.php)
-
-     General-purpose supporting functions
-
-    *******************************************************************************/
+    
+    /**
+     * Part of WINBINDER - The native Windows binding for PHP for PHP
+     * Parse ini file
+     * 
+     * @author    Rubem Pechansky (http://winbinder.org/contact.php)
+     * @copyright © Hypervisual - see LICENSE.TXT for details
+     * @staticvar array $words replacements
+     * @staticvar array $values replace
+     * @param string $initext parsed text
+     * @param bool $changecase allow change case
+     * @param bool $convertwords allow change Predefined words to values
+     * @return array 
+     */
     private function _parse_ini($initext, $changecase=TRUE, $convertwords=TRUE)
     {
         $ini = preg_split("/\r\n|\n/", $initext);
@@ -102,8 +126,8 @@ class PhProxy_Storage_INI {
         $section = array(); $sec = '';
 
         // Predefined words
-        static $words  = array("yes", "on", "true", "no", "off", "false", "null");
-        static $values = array(   1,    1,      1,    0,     0,       0,   null);
+        static $words  = array("yes", "on", "true", "no", "off", "false", "null", "1", "0");
+        static $values = array(   1,    1,      1,    0,     0,       0,   null,   1,   0);
 
         // Lines loop
         for($i = 0; $i < count($ini); $i++) {

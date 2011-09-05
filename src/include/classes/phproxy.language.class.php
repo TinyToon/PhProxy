@@ -15,21 +15,34 @@
 
 
 /**
- *  Interface to lang manager 
- **/
+ * Language manager
+ */
 final class PhProxy_Language extends PhProxy_Storage_INI {
     
+    /**
+     * Constructor. Call a parent contruct from PhProxy_Storage_INI
+     * 
+     * @param type $file path to lang file
+     */
     public function __construct($file) 
     {
         PhProxy::event(__CLASS__ . ' new instance with file ['.$file.']!');
         parent::__construct($file);
     }
     
+    /**
+     * Deny to set lang value
+     * @return false 
+     */
     public function set()
     {
         return false;
     }
     
+    /**
+     * Deny to save re-written lang file
+     * @return false
+     */
     public function save()
     {
         return false;

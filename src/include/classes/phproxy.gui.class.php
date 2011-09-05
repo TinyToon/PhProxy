@@ -182,32 +182,12 @@ class PhProxy_GUI {
     public function visible($bool)
     {     
         return wb_set_visible($this->wObject, $bool);
-        /*
-        // @TODO - Other function for controlls
-        if ($id == 0) {
-            return wb_set_visible($this->wObject, $bool);
-        } else {
-            if (!isset($this->controlls[$id])) {
-                return false;
-            }
-
-            return wb_set_visible($this->controlls[$id], $bool);
-        }
-         * 
-         */
     }
     
     // set focus
     public function focus()
     {
         return wb_set_focus($this->wObject);
-        /*
-        if (!isset($this->controlls[$id])) {
-            return false;
-        }
-        return wb_set_focus($this->controlls[$id]);
-         * 
-         */
     }
     
     // create/destroy timer
@@ -245,6 +225,7 @@ class PhProxy_GUI {
 // CONTROLS-MANAGMENT METHOD BEGIN
 # --------------------------------------------------->
  
+    
     // create a controll
     private function _controlCreate($type, $caption = '', $coord = array(0, 0), $size = array(0, 0), $id = 0, $style = null, $param = null)
     {
@@ -264,7 +245,7 @@ class PhProxy_GUI {
         return false;
     }
  
-    
+
     // Create a image control
     public function image($src, array $coord, array $size, $id = 0)
     {
@@ -384,9 +365,21 @@ class PhProxy_GUI {
 
         return $this->statusbar;
     }
+
+  
+    // destroying of a control with ID
+    public function c_destroy($id)
+    {
+        if (!isset($this->controlls[$id])) {
+            PhProxy::event(__CLASS__ . ' - Try to destroy not-exists conntrol with ID #'.$id);
+            return false;
+        }
+
+        wb_destroy_control($this->controlls[$id]);
+        unset($this->controlls[$id]);
+        return true;
+    }
     
-// CONTROLS-HANDLERS
-# --------------------------------------------------->    
     
     // controlls handler setter
     public function c_handler_set($id, $handler)
@@ -406,6 +399,74 @@ class PhProxy_GUI {
         return false;   
     }   
     
+    // set focus
+    public function c_focus($id)
+    {
+        if (!isset($this->controlls[$id])) {
+            return false;
+        }
+        return wb_set_focus($this->controlls[$id]);
+    }
+    
+    // get text from control
+    public function c_text_get($id)
+    {
+        // controll is not exists
+        if (!isset($this->controlls[$id])) {
+            PhProxy::fatal(__CLASS__ . ' - ' . sprintf(PhProxy::getInstance('lang')->get('gui', 'Error2'), $id));
+        }
+        return wb_get_text($this->controlls[$id]);
+    }
+    
+    // set text of controll
+    public function c_text_set($id, $text)
+    {
+        if (!isset($this->controlls[$id])) {
+            return false;
+        }
+        
+        return wb_set_text($this->controlls[$id], $text);
+    }
+    
+    // set enabled/disabled on control
+    public function c_enabled($id, $bool)
+    {
+        if (!isset($this->controlls[$id])) {
+            return false;
+        }
+
+        return wb_set_enabled($this->controlls[$id], $bool);
+    }
+    
+    // Set visible of controll
+    public function c_visible($id, $bool = 1)
+    {     
+        if (!isset($this->controlls[$id])) {
+            return false;
+        }
+        
+        return wb_set_visible($this->controlls[$id], $bool);
+    }
+    
+    // 
+    public function c_size($id, $x, $y)
+    {
+        if (!isset($this->controlls[$id])) {
+            return false;
+        }
+
+        return wb_set_size($this->controlls[$id], $x, $y);
+    }
+    
+    // 
+    public function c_position($id, $x, $y)
+    {
+        if (!isset($this->controlls[$id])) {
+            return false;
+        }
+
+        return wb_set_position($this->controlls[$id], $x, $y);
+    }
     
     
     
@@ -423,47 +484,17 @@ class PhProxy_Window {
     {
         return wb_destroy_window($this->wobj);
     }
-
-    
-
     
  # --------------------------------------------------->
 
-    // get text from control
-    public function getText($id)
-    {
-        if (!isset($this->controlls[$id])) {
-            global $phproxy;
-            phproxy_fatal(__CLASS__ . ' - ' . sprintf($phproxy->lang->get('gui', 'Error2'), $id));
-        }
-        return wb_get_text($this->controlls[$id]);
-    }
+
 
     
 
-    // set enabled/disabled on control
-    public function enabled($id, $bool)
-    {
-        if (!isset($this->controlls[$id])) {
-            return false;
-        }
-
-        return wb_set_enabled($this->controlls[$id], $bool);
-    }
+    
 
 
-    // destroying of a control with ID
-    public function controlDestroy($id)
-    {
-        if (!isset($this->controlls[$id])) {
-            phproxy_event(__CLASS__ . ' - Try to destroy not-exists conntrol with ID #'.$id);
-            return false;
-        }
-
-        wb_destroy_control($this->controlls[$id]);
-        unset($this->controlls[$id]);
-        return true;
-    }
+    
 
     // Create a frame control
     public function frame($caption, array $coord, array $size, $id = 1, $style = null, $font = null)

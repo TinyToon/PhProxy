@@ -35,6 +35,10 @@
 			margin: 0px;
 			padding: 10px;
         }
+        #phproxy_error_body h2 {
+			padding: 0px;
+			margin: 0px;
+        }
         #phproxy_error_footer {
 			text-align: center;
 			background-color: #369;
@@ -45,7 +49,7 @@
 			color: #fff;
         }
         #phproxy_error_footer a:hover {
-			color: #aaa;
+			color: #000;
         }
         
         
@@ -55,7 +59,9 @@
     <body>
 		<div id='phproxy_error'>
 			<div id='phproxy_error_header'><h1>Во время работы PhProxy произошла ошибка</h1></div>
-			<div id='phproxy_error_body'><p>{error}</p></div>
+			<div id='phproxy_error_body'>
+			<p>{error}</p>
+			</div>
 			<div id='phproxy_error_footer'>
 			<small>
 			<b>{version}</b><br/>via {system} 

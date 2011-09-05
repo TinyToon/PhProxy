@@ -11,6 +11,7 @@
  * @link      http://github.com/Shcneider/PhProxy (sources, binares)
  * @link      http://vk.shcneider.in/forum (binares, support)
  * @link      http://alex.shcneider.in/ (author)
+ * @todo      PhpDocs
  **/
 
 /**
@@ -178,7 +179,11 @@ class PhProxy_HTTP_Request {
     
 # -------------------------------------------------------- >> Private Methods
     
-    // parsing raw request
+    /**
+     * Parse raw HTTP request to parts
+     * @param type $raw
+     * @return type 
+     */
     private function _parse($raw)
     {
         // set raw text and raw length
@@ -224,7 +229,13 @@ class PhProxy_HTTP_Request {
         return true;    
     }
     
-    // parse HTTP head 
+
+    /**
+     * Parsing HTTP request head to parts
+     * 
+     * @param string $head
+     * @return mixed 
+     */
     private function _parse_head($head)
     {       
         // parsing headers
