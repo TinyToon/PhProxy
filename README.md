@@ -1,4 +1,4 @@
-PProxy (ex. PhProxy) 
+PhProxy (ex. PhProxy) 
 ====================
 
 PhProxy Client

@@ -1,1 +1,0 @@
-{$PHPROXY_VERSION} - Полная версия

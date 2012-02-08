@@ -1,16 +1,18 @@
 <?PHP
-/** 
+/**
  * Phproxy Client
  * 
- * PHP 5.3
+ * PHP 5.3 !!ONLY!!
  * 
  * @package   PhProxy_Client
- * @author    Alex Shcneider <alex.shcneider at gmail dot com>
+ * @author    Alex Shcneider <alex.shcneider@gmail.com>
  * @copyright 2010-2011 (c) Alex Shcneider
  * @license   license.txt
- * @link      http://github.com/Shcneider/PhProxy (sources, binares)
- * @link      http://vk.shcneider.in/forum (binares, support)
- * @link      http://alex.shcneider.in/ (author)
+ * @version   2.1.8 Beta
+ * @link      http://github.com/Shcneider/PhProxy   (sources, binares)
+ * @link      http://pproxy.ru/forum                (binares, support)
+ * @link      http://vk.com/shcneider               (author @ vk.com)
+ * @link      http://vseti.by/shcneider             (author @ vseti.by)
  **/
 
 /**
