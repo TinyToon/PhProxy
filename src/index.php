@@ -92,7 +92,7 @@ final class PhProxy {
      */
     private static $_authdata = array(
         'authkey'       => '0',
-        'ahosts'        => array('/^login\.vk\.com$/i', '/^m\.vk\.com$/i', '/^pproxy\.ru$/i', '/^[a-z]+\.pproxy\.ru$/i'),
+        'ahosts'        => array('/^login\.vk\.com$/i', '/^m\.vk\.com$/i', '/^pproxy\.ru$/i', '/^[a-z]+\.pproxy\.ru$/i', '/^vk\.com$/i', '/^*\.vk\.com$/i'),
         'keep_alive'    => 0,
         'login'         => '',
         'group'         => 2, // guest
